@@ -14,7 +14,7 @@ def videoToImages(videoFileName, outputFolder, interval = 1):
     counter = 0
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))  # Get total frames
     for counter in tqdm(range(length), ncols = 110, desc = "Splitting Video : {} , Progress ->".format(videoFileName)):
-        ret, frame = cap.read()
+        _, frame = cap.read()
 
         if counter%interval==0:
             # Write image to disk

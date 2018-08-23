@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 import sqlite3
 import re
+import os
 
 def checkIfImagesAreDone(fileName):   # This function makes query to database to see if the image is aready done
     sql= "SELECT ImageName from "+inputTable+" WHERE ImageName ='"+fileName[fileName.rfind("\\")+1:fileName.rfind(".")].replace("'","")+"'"
@@ -102,7 +103,7 @@ class TrainerUI(QtWidgets.QMainWindow):
             self.msg.show()
             return
 
-        self.imageList=glob.glob(self.imgDir+"\*.jpg")
+        self.imageList=glob.glob(self.imgDir+"/*.jpg")
 
         if len (self.imageList) == 0:
             self.msg = QMessageBox(self) 
@@ -192,14 +193,14 @@ class TrainerUI(QtWidgets.QMainWindow):
             self.imgPath=img_path
 
         # Resize image to fit out UI and save the ratio of resize in self.delta
-        h,w,_=self.img.shape
+        h = self.img.shape[0]
         self.delta=600/float(h) if 600/float(h)<1 else 1
 
         cv_img=cv2.resize(self.img, (0,0), fx=self.delta, fy=self.delta)  
 
         height, width, bytesPerComponent = cv_img.shape
         self.label.resize(width,height)
-        bytesPerLine = bytesPerComponent * width;
+        bytesPerLine = bytesPerComponent * width
         cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB, cv_img)
         self.label.setPixmap(QtGui.QPixmap.fromImage(QtGui.QImage(cv_img.data, width, height, bytesPerLine, QtGui.QImage.Format_RGB888))) 
 
@@ -221,6 +222,7 @@ class TrainerUI(QtWidgets.QMainWindow):
                     self.index+=1
                     self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
                     try:
+                        self.statusBar().showMessage(os.path.basename(self.imageList[self.index]))
                         self.imageOpenCv2ToQImage(self.imageList[self.index])
                     except IndexError:
                         self.index-=1
@@ -253,82 +255,70 @@ class TrainerUI(QtWidgets.QMainWindow):
             self.points=[]
             self.imageOpenCv2ToQImage(self.imageList[self.index])
 
+        if event.button() == QtCore.Qt.MiddleButton:
+            self.continueFlag=True
+
+    def loadNextImage(self):
+        sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","")+"',' ','"+"Not Detected"+"')"
+        conn.execute(sql)
+        conn.commit()
+        self.index+=1
+        self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
+        self.points=[]
+
+        try:
+            self.statusBar().showMessage(os.path.basename(self.imageList[self.index]))
+            self.imageOpenCv2ToQImage(self.imageList[self.index])
+        except IndexError:
+            self.index-=1
+            self.msg = QMessageBox(self) 
+            self.msg.setIcon(QMessageBox.Information)
+            self.msg.setWindowTitle("Completed")
+            self.msg.setText("All Images in folder tagged")
+            self.msg.show()
+
+    def loadPreviousImage(self):
+        self.index-=1
+        self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
+        self.points=[]
+        try:
+            self.statusBar().showMessage(os.path.basename(self.imageList[self.index]))
+            self.imageOpenCv2ToQImage(self.imageList[self.index])
+        except IndexError:
+            self.index+=1
+            self.msg = QMessageBox(self) 
+            self.msg.setIcon(QMessageBox.Information)
+            self.msg.setWindowTitle("Completed")
+            self.msg.setText("All Images in folder tagged")
+            self.msg.show()
+
     
     def keyPressEvent(self, e):      # In the event that a key is pressed
-        if e.key() == QtCore.Qt.Key_Right or e.key() == QtCore.Qt.Key_D or e.key() == QtCore.Qt.MiddleButton:   # If key pressed is right arrow or D
+        if e.key() == QtCore.Qt.Key_Right or e.key() == QtCore.Qt.Key_D :   # If key pressed is right arrow or D
             # Load next image
-            sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","")+"',' ','"+"Not Detected"+"')"
-            conn.execute(sql)
-            conn.commit()
-            self.index+=1
-            self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
-            self.points=[]
-            try:
-                self.imageOpenCv2ToQImage(self.imageList[self.index])
-            except IndexError:
-                self.index-=1
-                self.msg = QMessageBox(self) 
-                self.msg.setIcon(QMessageBox.Information)
-                self.msg.setWindowTitle("Completed")
-                self.msg.setText("All Images in folder tagged")
-                self.msg.show()
+            self.loadNextImage()
             
         elif e.key() == QtCore.Qt.Key_Left or e.key() == QtCore.Qt.Key_A:   # If key pressed is left arrow or A
             # Load previous image
-            self.index-=1
-            self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
-            self.points=[]
-            try:
-                self.imageOpenCv2ToQImage(self.imageList[self.index])
-            except IndexError:
-                self.index+=1
-                self.msg = QMessageBox(self) 
-                self.msg.setIcon(QMessageBox.Information)
-                self.msg.setWindowTitle("Completed")
-                self.msg.setText("All Images in folder tagged")
-                self.msg.show()
-
+            self.loadPreviousImage()
+        
         if  e.key() == QtCore.Qt.Key_F:
             self.continueFlag=True
+            
 
 
     def wheelEvent(self,event):
 
         if event.angleDelta().y()>0: # Scroll Up
-            # Load next image
-            sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","")+"',' ','"+"Not Detected"+"')"
-            conn.execute(sql)
-            conn.commit()
-            self.index+=1
-            self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
-            self.points=[]
-            try:
-                self.imageOpenCv2ToQImage(self.imageList[self.index])
-            except IndexError:
-                self.index-=1
-                self.msg = QMessageBox(self) 
-                self.msg.setIcon(QMessageBox.Information)
-                self.msg.setWindowTitle("Completed")
-                self.msg.setText("All Images in folder tagged")
-                self.msg.show()
+            # Load previous image
+            self.loadPreviousImage()
 
         
         if event.angleDelta().y()<0:# Scroll Down
-            # Load previous image
-            self.index-=1
-            self.progress.setValue(abs(self.index*100/float(len(self.imageList))))
-            self.points=[]
-            try:
-                self.imageOpenCv2ToQImage(self.imageList[self.index])
-            except IndexError:
-                self.index+=1
-                self.msg = QMessageBox(self) 
-                self.msg.setIcon(QMessageBox.Information)
-                self.msg.setWindowTitle("Completed")
-                self.msg.setText("All Images in folder tagged")
-                self.msg.show()
+            # Load next image
+            self.loadNextImage()
 
-
+    
 
 class Tutorial(QtWidgets.QMainWindow):
     def __init__(self,parent=None):
@@ -365,7 +355,7 @@ class Tutorial(QtWidgets.QMainWindow):
         
         height, width, bytesPerComponent = cv_img.shape
         self.label.resize(width,height)
-        bytesPerLine = bytesPerComponent * width;
+        bytesPerLine = bytesPerComponent * width
         self.label.setPixmap(QtGui.QPixmap.fromImage(QtGui.QImage(cv_img.data, width, height, bytesPerLine, QtGui.QImage.Format_RGB888)))
 
     def nextImg(self,event):
@@ -469,7 +459,7 @@ conn=None
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    ex = TrainerUI()
+    _ = TrainerUI()
     #ex=Tutorial()
 
     sys.exit(app.exec_())
