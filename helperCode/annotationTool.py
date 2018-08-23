@@ -33,32 +33,34 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.index=0                  # Index of current image
         self.delta=1                  # This is used to convert resized points to actual image coordinates
         
-        self.imageList=None           # List of images in the folder to check
-        self.img=None                 # Current image
-        self.imgPath=None             # Current image path
-        self.tuts=None                # Tuturial file
-        self.imgDir=None              # Image directory
-        self.label=None               # Image widget
-        self.dbname=None              # Database name
-        self.msg=None                 # Message 
-        self.progress=None            # Progress Bar
-        self.continueFlag=False
+        self.imageList = None           # List of images in the folder to check
+        self.img = None                 # Current image
+        self.imgPath = None             # Current image path
+        self.tuts = None                # Tuturial file
+        self.imgDir = None              # Image directory
+        self.label = None               # Image widget
+        self.dbFile = None              # Database name
+        self.msg = None                 # Message 
+        self.progress = None            # Progress Bar
+        self.continueFlag = False       # This flag is made true if you want to make multiple selections
+        self.generateCSVButton = None   # Generate CSV Button
 
         self.statusBar()  
         self.loadLabel = self.createLabel((150, 202),(250,30),"LOAD IMAGES")
         self.loadLabel.setFont(QtGui.QFont('SansSerif', 12, QtGui.QFont.Bold))
 
-        self.browseButton=self.createButton("BROWSE",(370, 200),(120,35),self.getImagesFolderName)
+        self.browseButton = self.createButton("BROWSE",(370, 200),(120,35),self.getImagesFolderName)
         self.pathLabel = self.createLabel((150, 250),(500,30),"")
 
         self.DBloadLabel = self.createLabel((150, 300),(250,30),"DATABASE FILE")
         self.DBloadLabel.setFont(QtGui.QFont('SansSerif', 12, QtGui.QFont.Bold))
 
-        self.DBbrowseButton=self.createButton("BROWSE",(370, 300),(120,35),self.getDatabasefile)
+        self.DBbrowseButton = self.createButton("BROWSE",(370, 300),(120,35),self.getDatabasefile)
         self.DBpathLabel = self.createLabel((150, 350),(500,30),"")
 
 
-        self.startProcessing=self.createButton("START TRAINING",(250, 400),(150,35),self.loadImages)
+        self.startProcessing = self.createButton("START TRAINING",(250, 400),(150,35),self.loadImages)
+         
 
         # Define All Labels and buttons
         self.heading = self.createLabel((970, 90),(500,30),".:IMAGE TRAINER:.")
@@ -77,21 +79,24 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.heading = self.createLabel((900, 430),(700,30),'10. IN CASE MORE THAN ONE OBJECTS ARE PRESENT THEN AFTER')
         self.heading = self.createLabel((900, 450),(700,30),'   FIRST SELECTION PRESS F OR THE MIDDLE MOUSE BUTTON')
         self.heading = self.createLabel((900, 470),(700,30),'   AND THEN MAKE THE NEXT SELECTION')
-
-
-
-        self.tutButton=self.createButton("TUTORIAL",(950, 530),(130,35),self.showTuts)  # Create button
-        self.quitButton=self.createButton("CLOSE",(1100, 530),(130,35),QtCore.QCoreApplication.instance().quit)
-
         
-        self.setMinimumSize(1550, 700)  # Set minimum window size 
+        self.generateCSVButton = self.createButton("GENERATE CSV",(250, 450),(150,35),self.generateCSV) 
+        self.generateCSVButton.hide()
+        self.quitButton=self.createButton("CLOSE",(1025, 530),(130,35),QtCore.QCoreApplication.instance().quit)
+
+        self.setMinimumSize(1550, 800)  # Set minimum window size 
         #self.showMaximized()            # Maximize window  
         self.show()                     # Show window
 
 
     def getDatabasefile(self):  # Open file dialog box to get database file name
-        self.dbname=  QFileDialog.getSaveFileName(None, 'Open Database', '',"Database files (*.db)") [0]
-        self.DBpathLabel.setText(self.dbname)           
+        self.dbFile=  QFileDialog.getSaveFileName(None, 'Open Database', '',"Database files (*.db)") [0]
+
+        if os.path.exists(self.dbFile):
+            # If the database already exists then show createCSV function
+            self.generateCSVButton.show()
+
+        self.DBpathLabel.setText(self.dbFile)           
 
     def getImagesFolderName(self): # Open Directory dialog box to get input image folder
         self.imgDir=QFileDialog.getExistingDirectory(None, 'Open Images Directory:', '', QFileDialog.ShowDirsOnly)
@@ -99,7 +104,7 @@ class TrainerUI(QtWidgets.QMainWindow):
 
     def loadImages(self):  # Load images from directory
 
-        if self.dbname== None or self.imgDir==None:  # Validate input fields
+        if self.dbFile== None or self.imgDir==None:  # Validate input fields
             self.msg = QMessageBox(self) 
             self.msg.setIcon(QMessageBox.Critical)
             self.msg.setWindowTitle("Start Training Error")
@@ -130,7 +135,7 @@ class TrainerUI(QtWidgets.QMainWindow):
 
     
         # connect database
-        conn = sqlite3.connect(self.dbname)
+        conn = sqlite3.connect(self.dbFile)
         conn.execute('''CREATE TABLE IF NOT EXISTS TaggedImages
          (ImageName varchar(500) NOT NULL PRIMARY KEY,
          tags varchar(300),
@@ -168,9 +173,9 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.label.mousePressEvent = self.getPos   # Function assigned to on click event
         self.label.show()
 
-    def showTuts(self): # show tutorial
-        self.tuts=Tutorial()    # Create tutorial object
-        self.tuts.show()
+    def generateCSV(self): 
+        # TO-DO
+        pass
 
 
     def createButton(self,text,pos,size,function,css=""):  # This function creates button 
@@ -198,7 +203,7 @@ class TrainerUI(QtWidgets.QMainWindow):
 
         # Resize image to fit out UI and save the ratio of resize in self.delta
         h = self.img.shape[0]
-        self.delta=600/float(h) if 600/float(h)<1 else 1
+        self.delta=700/float(h) if 700/float(h)<1 else 1
 
         cv_img=cv2.resize(self.img, (0,0), fx=self.delta, fy=self.delta)  
 
@@ -322,117 +327,12 @@ class TrainerUI(QtWidgets.QMainWindow):
             # Load next image
             self.loadNextImage()
 
-    
-
-class Tutorial(QtWidgets.QMainWindow):
-    def __init__(self,parent=None):
-
-        QtWidgets.QMainWindow.__init__(self,parent) # Tutorial Window
-        self.label = QLabel(self)
-        self.label.move(105,40)   
-        self.tutList=pickle.load(open(tutorialFile,"rb"))
-        self.currImage=self.tutList[0]
-        cv2.cvtColor(self.currImage, cv2.COLOR_BGR2RGB, self.currImage)
-        self.imageOpenCv2ToQImage(self.currImage)
-        self.label.mousePressEvent = self.nextImg
-        self.setMinimumSize(820, 700)
-        self.setMaximumSize(820, 700)
-        self.counter=0
-        self.quitButton = QPushButton("CLOSE", self) 
-        self.quitButton.move(345, 650)                          # Position the button
-        self.quitButton.clicked.connect(self.closeWindow) 
-        self.createLabel((350,0),(200,40),"CLICK TO PROCEED")
-        self.show()
-
-    def createLabel(self,pos,size,data):
-        label = QLabel(data,self)
-        label.resize(size[0],size[1])
-        label.move(pos[0],pos[1])
-        label.setFont(QtGui.QFont('ComicSans', 10))
-
-        return label
-
-    def closeWindow(self):
-        self.close()
-
-    def imageOpenCv2ToQImage (self, cv_img):
-        
-        height, width, bytesPerComponent = cv_img.shape
-        self.label.resize(width,height)
-        bytesPerLine = bytesPerComponent * width
-        self.label.setPixmap(QtGui.QPixmap.fromImage(QtGui.QImage(cv_img.data, width, height, bytesPerLine, QtGui.QImage.Format_RGB888)))
-
-    def nextImg(self,event):
-        if event.button() == QtCore.Qt.LeftButton:
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            if self.counter==0:
-                self.counter+=1
-                cv2.putText(self.currImage,'1. SEARCH FOR GAS TANKS IN THE IMAGE',(20,50), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==1:
-                self.counter+=1
-                cv2.putText(self.currImage,'2. LEFT CLICK ON UPPER LEFT CORNER OF GAS TANK',(20,80), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.circle(self.currImage,(240,325), 3, (0,0,255), -1)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==2:
-                self.counter+=1
-                cv2.putText(self.currImage,'3. LEFT CLICK ON LOWER RIGHT CORNER OF GAS TANK',(20,110), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.circle(self.currImage,(328,435), 3, (0,0,255), -1)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==3:
-                self.counter+=1
-                cv2.putText(self.currImage,'4. LEFT CLICK ANYWHERE TO CONFIRM SELECTION',(20,140), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.rectangle(self.currImage,(240,325),(328,435),(0,255,0),3)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==4:
-                self.counter+=1
-                self.currImage=self.tutList[1]
-                self.label.move(50,80)   
-                self.quitButton.move(345, 600) 
-                cv2.cvtColor(self.currImage, cv2.COLOR_BGR2RGB, self.currImage)
-                cv2.putText(self.currImage,'1. SEARCH FOR GAS TANKS IN THE IMAGE',(30,50), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==5:
-                self.counter+=1
-                self.currImage=self.tutList[1]
-                cv2.putText(self.currImage,'2. IF NO GAS TANKS ARE FOUND GO TO NEXT IMAGE BY',(30,80), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.putText(self.currImage,'   SCROLLING UP OR PRESSING RIGHT ARROW KEY',(30,110), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==6:
-                self.counter+=1
-                self.currImage=self.tutList[2]
-                self.label.move(70,50)   
-                self.quitButton.move(345, 610) 
-                cv2.cvtColor(self.currImage, cv2.COLOR_BGR2RGB, self.currImage)
-                cv2.putText(self.currImage,'1. SEARCH FOR GAS TANKS IN THE IMAGE',(30,50), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==7:
-                self.counter+=1
-                cv2.putText(self.currImage,'2. MULTIPLE GAS TANKS PRESENT',(30,80), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==8:
-                self.counter+=1
-                cv2.putText(self.currImage,'3. MARK FIRST TANK',(30,110), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.rectangle(self.currImage,(226,400),(275,474),(0,255,0),3)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==9:
-                self.counter+=1
-                cv2.putText(self.currImage,'4. PRESS KEY F',(30,140), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==10:
-                self.counter+=1
-                cv2.putText(self.currImage,'5. MARK SECOND TANK',(30,170), font, 0.6,(255,255,0),2,cv2.LINE_AA)
-                cv2.rectangle(self.currImage,(434,275),(545,325),(0,255,0),3)
-                self.imageOpenCv2ToQImage(self.currImage)
-            elif self.counter==11:
-                self.close()
 
 
 # inputData=r"D:\BackUp_Geospoc_Shubham\AmeriGas\APICALL\Detected\TrainSet\Tiles"
 # imageList=glob.glob(inputData+"\*.jpg")
 
 
-tutorialFile="Tutorial.pkl"
 inputTable='TaggedImages'
 conn=None
 
