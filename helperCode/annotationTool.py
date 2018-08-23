@@ -63,19 +63,23 @@ class TrainerUI(QtWidgets.QMainWindow):
         # Define All Labels and buttons
         self.heading = self.createLabel((970, 90),(500,30),".:IMAGE TRAINER:.")
         self.heading.setFont(QtGui.QFont('SansSerif', 15, QtGui.QFont.Bold))
+
         self.heading = self.createLabel((900, 140),(700,30),'1. SEARCH FOR THE OBJECT IN THE IMAGE')
         self.heading = self.createLabel((900, 170),(700,30),'2. LEFT CLICK ON UPPER LEFT CORNER OF OBJECT')
         self.heading = self.createLabel((900, 200),(700,30),'3. THEN LEFT CLICK ON LOWER RIGHT CORNER OF OBJECT')
         self.heading = self.createLabel((900, 230),(700,30),'4. LEFT CLICK ANYWHERE TO CONFIRM SELECTION')
         self.heading = self.createLabel((900, 260),(700,30),'5. IF THERE ARE NO OBJECTS THEN GO THE NEXT IMAGE BY')
         self.heading = self.createLabel((900, 280),(700,30),'   SCROLLING DOWN OR PRESSING RIGHT ARROW KEY')
-        self.heading = self.createLabel((900, 310),(700,30),'6. USE D OR RIGHT-ARROW OR SCROLL-DOWN OR')
-        self.heading = self.createLabel((900, 340),(700,30),'   MIDDLE MOUSE BUTTON FOR NEXT IMAGE')
-        self.heading = self.createLabel((900, 360),(700,30),'7. USE A OR LEFT-ARROW OR SCROLL-UP FOR PREVIOUS IMAGE')
-        self.heading = self.createLabel((900, 390),(700,30),'8. USE RIGHT CLICK TO UNDO SELECTION')
-        self.heading = self.createLabel((900, 420),(700,30),'9. MAKE SURE THE OBJECT FALLS COMPLETELY IN THE BOX')
-        self.heading = self.createLabel((900, 450),(700,30),'10. IN CASE MORE THAN ONE OBJECTS ARE PRESENT THEN AFTER')
-        self.heading = self.createLabel((900, 470),(700,30),'   FIRST SELECTION PRESS F AND MAKE THE NEXT SELECTION')
+        self.heading = self.createLabel((900, 310),(700,30),'6. USE D OR RIGHT-ARROW OR SCROLL-DOWN FOR NEXT IMAGE')
+        self.heading = self.createLabel((900, 340),(700,30),'7. USE A OR LEFT-ARROW OR SCROLL-UP FOR PREVIOUS IMAGE')
+        self.heading = self.createLabel((900, 370),(700,30),'8. USE RIGHT CLICK TO UNDO SELECTION')
+        self.heading = self.createLabel((900, 400),(700,30),'9. MAKE SURE THE OBJECT FALLS COMPLETELY IN THE BOX')
+        self.heading = self.createLabel((900, 430),(700,30),'10. IN CASE MORE THAN ONE OBJECTS ARE PRESENT THEN AFTER')
+        self.heading = self.createLabel((900, 450),(700,30),'   FIRST SELECTION PRESS F OR THE MIDDLE MOUSE BUTTON')
+        self.heading = self.createLabel((900, 470),(700,30),'   AND THEN MAKE THE NEXT SELECTION')
+
+
+
         self.tutButton=self.createButton("TUTORIAL",(950, 530),(130,35),self.showTuts)  # Create button
         self.quitButton=self.createButton("CLOSE",(1100, 530),(130,35),QtCore.QCoreApplication.instance().quit)
 
