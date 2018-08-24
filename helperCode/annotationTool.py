@@ -13,9 +13,11 @@ from collections import defaultdict
 import sqlite3
 import re
 import os
+import csv
 
 def checkIfImagesAreDone(fileName):   # This function makes query to database to see if the image is aready done
-    sql= "SELECT ImageName from "+inputTable+" WHERE ImageName ='"+fileName[fileName.rfind("\\")+1:fileName.rfind(".")].replace("'","")+"'"
+    # sql= "SELECT ImageName from "+inputTable+" WHERE ImageName ='"+fileName[fileName.rfind("\\")+1:fileName.rfind(".")].replace("'","")+"'"
+    sql = 'SELECT ImageName from {} WHERE ImageName = "{}" '.format(inputTable,os.path.basename(fileName)) 
 
     if list(conn.execute(sql))==[]:
         return False
@@ -58,10 +60,6 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.DBbrowseButton = self.createButton("BROWSE",(370, 300),(120,35),self.getDatabasefile)
         self.DBpathLabel = self.createLabel((150, 350),(500,30),"")
 
-
-        self.startProcessing = self.createButton("START TRAINING",(250, 400),(150,35),self.loadImages)
-         
-
         # Define All Labels and buttons
         self.heading = self.createLabel((970, 90),(500,30),".:IMAGE TRAINER:.")
         self.heading.setFont(QtGui.QFont('SansSerif', 15, QtGui.QFont.Bold))
@@ -80,9 +78,11 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.heading = self.createLabel((900, 450),(700,30),'   FIRST SELECTION PRESS F OR THE MIDDLE MOUSE BUTTON')
         self.heading = self.createLabel((900, 470),(700,30),'   AND THEN MAKE THE NEXT SELECTION')
         
-        self.generateCSVButton = self.createButton("GENERATE CSV",(250, 450),(150,35),self.generateCSV) 
-        self.generateCSVButton.hide()
+        self.startProcessing = self.createButton("START TRAINING",(260, 420),(150,35),self.loadImages)
+        self.generateCSVButton = self.createButton("GENERATE CSV",(260, 470),(150,35),self.generateCSV) 
         self.quitButton=self.createButton("CLOSE",(1025, 530),(130,35),QtCore.QCoreApplication.instance().quit)
+
+        self.generateCSVButton.hide()
 
         self.setMinimumSize(1550, 800)  # Set minimum window size 
         #self.showMaximized()            # Maximize window  
@@ -90,35 +90,42 @@ class TrainerUI(QtWidgets.QMainWindow):
 
 
     def getDatabasefile(self):  # Open file dialog box to get database file name
+        global conn
         self.dbFile=  QFileDialog.getSaveFileName(None, 'Open Database', '',"Database files (*.db)") [0]
 
         if os.path.exists(self.dbFile):
             # If the database already exists then show createCSV function
             self.generateCSVButton.show()
 
-        self.DBpathLabel.setText(self.dbFile)           
+        self.DBpathLabel.setText(self.dbFile)
+
+        # connect database
+        conn = sqlite3.connect(self.dbFile)
+               
 
     def getImagesFolderName(self): # Open Directory dialog box to get input image folder
-        self.imgDir=QFileDialog.getExistingDirectory(None, 'Open Images Directory:', '', QFileDialog.ShowDirsOnly)
+        self.imgDir = QFileDialog.getExistingDirectory(None, 'Open Images Directory:', '', QFileDialog.ShowDirsOnly)
         self.pathLabel.setText(self.imgDir)
+
+    def messageBox(self,messageType,title,message):
+        msg = QMessageBox(self) 
+        msg.setIcon(messageType)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        return msg
+
 
     def loadImages(self):  # Load images from directory
 
         if self.dbFile== None or self.imgDir==None:  # Validate input fields
-            self.msg = QMessageBox(self) 
-            self.msg.setIcon(QMessageBox.Critical)
-            self.msg.setWindowTitle("Start Training Error")
-            self.msg.setText("Manditory Fields Not Entered")
+            self.msg = self.messageBox(QMessageBox.Critical,"Start Training Error","Manditory Fields Not Entered")
             self.msg.show()
             return
 
         self.imageList=glob.glob(self.imgDir+"/*.jpg")
 
         if len (self.imageList) == 0:
-            self.msg = QMessageBox(self) 
-            self.msg.setIcon(QMessageBox.Critical)
-            self.msg.setWindowTitle("Folder Empty")
-            self.msg.setText("No Images found in the folder")
+            self.msg = self.messageBox(QMessageBox.Critical,"Folder Empty","No Images found in the folder")
             self.msg.show()
             return
 
@@ -132,14 +139,14 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.DBloadLabel.hide()
         self.DBbrowseButton.hide()
         self.DBpathLabel.hide()
+        self.generateCSVButton.move(450,8)
 
-    
-        # connect database
-        conn = sqlite3.connect(self.dbFile)
         conn.execute('''CREATE TABLE IF NOT EXISTS TaggedImages
-         (ImageName varchar(500) NOT NULL PRIMARY KEY,
-         tags varchar(300),
-         Detection varchar(15));''')
+         (ImageName TEXT NOT NULL PRIMARY KEY,
+         Tags TEXT,
+         Detection TEXT,
+         Height INT,
+         Width INT) ;''')
 
         # Read all images from folder
         
@@ -149,10 +156,7 @@ class TrainerUI(QtWidgets.QMainWindow):
                 self.index+=1
         except IndexError:
             self.index = len(self.imageList)-1
-            self.msg = QMessageBox(self) 
-            self.msg.setIcon(QMessageBox.Information)
-            self.msg.setWindowTitle("Completed")
-            self.msg.setText("All Images in folder tagged")
+            self.msg = self.messageBox(QMessageBox.Information,"Completed","All Images in folder tagged")
             self.msg.show()
 
         self.progLabel = self.createLabel((60, 12),(250,30),"PROGRESS:")
@@ -173,9 +177,54 @@ class TrainerUI(QtWidgets.QMainWindow):
         self.label.mousePressEvent = self.getPos   # Function assigned to on click event
         self.label.show()
 
+    def writeCSV(self,detections,outputCSVFilename,objectClass):
+
+        csvfile = open(outputCSVFilename, 'w', encoding='utf-8-sig')
+        csvfile.write (",".join(["filename","width","height","class","xmin","ymin","xmax","ymax"])+"\n")
+
+        for filename, detection, height, width in detections:
+            boxes = detection.split("|")
+            for box in boxes:
+                box = box.split(";")
+                x1,y1 = map(int,box[0].split(","))
+                x2,y2 = map(int,box[1].split(","))
+
+                xMax = max([x1,x2])
+                yMax = max([y1,y2])
+                xMin = min([x1,x2])
+                yMin = min([y1,y2])
+
+                csvfile.write (",".join(map(str, [filename,width,height,objectClass,xMin,yMin,xMax,yMax]))+"\n")
+
+        csvfile.close()
+
+
     def generateCSV(self): 
-        # TO-DO
-        pass
+        # objectClass, ok = QInputDialog.getText(self, 'Enter Name', 'Enter the name of the object')
+        # if ok and objectClass.strip()!="":
+        #     print (objectClass)
+        # else:
+        #     self.msg = self.messageBox(QMessageBox.Critical,"Invalid","Invalid Entry")
+        #     self.msg.show()
+        #     return
+
+        sqlQuery = 'SELECT ImageName,Tags,Height,Width FROM {} WHERE Detection="Detected"'.format(inputTable)
+        detections = list(conn.execute(sqlQuery))
+
+        if detections == []:
+            self.msg = self.messageBox(QMessageBox.Information,"Zero Detections","No detections found")
+            self.msg.show()
+            return
+
+        # outputCSVFilename = QFileDialog.getSaveFileName(None, 'Save CSV File', '',"CSV files (*.csv)") [0]
+
+        objectClass="humans"
+        outputCSVFilename=r"J:\MySoftwares\Python\SmartTrafficLights\SmartTrafficLights\helperCode\humans.csv"
+
+        self.writeCSV(detections,outputCSVFilename,objectClass)
+        
+
+
 
 
     def createButton(self,text,pos,size,function,css=""):  # This function creates button 
@@ -216,7 +265,8 @@ class TrainerUI(QtWidgets.QMainWindow):
 
     def getPos(self , event):  # This function is called when mouse is clicked
 
-        sizeDelta = int(self.img.shape[0]/float(700))
+        height,width,_ = self.img.shape
+        sizeDelta = int(height/float(700))
 
         if event.button() == QtCore.Qt.LeftButton:
 
@@ -224,7 +274,9 @@ class TrainerUI(QtWidgets.QMainWindow):
                 if len(self.points)%2==0 and len(self.points)>0:  # This code block is run when user confirms selection
                     # Add Data to database and load next image
                     fltpt=[str(z) for y in self.points for z in y]
-                    sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","\'")+"','"+"|".join([fltpt[x]+","+fltpt[x+1]+";"+fltpt[x+2]+","+fltpt[x+3] for x in  range(0,len(fltpt),4)])+"','"+"Detected"+"')"
+                    #sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,Tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","\'")+"','"+"|".join([fltpt[x]+","+fltpt[x+1]+";"+fltpt[x+2]+","+fltpt[x+3] for x in  range(0,len(fltpt),4)])+"','"+"Detected"+"')"
+                    detectionsString = "|".join([fltpt[x]+","+fltpt[x+1]+";"+fltpt[x+2]+","+fltpt[x+3] for x in  range(0,len(fltpt),4)])
+                    sql = "INSERT OR REPLACE INTO {} (ImageName,Tags,Detection,Height,Width) VALUES ('{}','{}','Detected',{},{})".format(inputTable, os.path.basename(self.imgPath), detectionsString, height, width)
                     conn.execute(sql)
                     conn.commit()
                     self.points=[]
@@ -268,7 +320,9 @@ class TrainerUI(QtWidgets.QMainWindow):
             self.continueFlag=True
 
     def loadNextImage(self):
-        sql="INSERT OR REPLACE INTO "+inputTable+" (ImageName,tags,Detection) VALUES ('"+self.imgPath[self.imgPath.rfind("\\")+1:self.imgPath.rfind(".")].replace("'","")+"',' ','"+"Not Detected"+"')"
+        height,width,_ = self.img.shape
+        sql =  "INSERT OR REPLACE INTO {} (ImageName,Tags,Detection,Height,Width) VALUES ('{}','','Not Detected',{},{})".format(inputTable, os.path.basename(self.imgPath), height, width)
+
         conn.execute(sql)
         conn.commit()
         self.index+=1
